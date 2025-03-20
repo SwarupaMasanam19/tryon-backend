@@ -4,11 +4,11 @@ const multer = require("multer");
 const sharp = require("sharp");
 const axios = require("axios");
 const path = require("path");
-const fs = require("fs");  // Missing import
+const fs = require("fs");
+const FormData = require("form-data");  // ✅ Use form-data package
 
 const app = express();
 app.use(cors());
-
 const upload = multer({ dest: "uploads/" });
 
 app.post("/upload", upload.fields([{ name: "user_image" }, { name: "cloth_image" }]), async (req, res) => {
@@ -16,25 +16,24 @@ app.post("/upload", upload.fields([{ name: "user_image" }, { name: "cloth_image"
         return res.status(400).json({ error: "Missing files!" });
     }
 
-    // Resize images before sending to ACGPN
+    // Resize images
     const resizedUserImage = path.join(__dirname, "uploads", "resized_user.jpg");
     const resizedClothImage = path.join(__dirname, "uploads", "resized_cloth.jpg");
 
+    await sharp(req.files["user_image"][0].path).resize(512, 512).toFile(resizedUserImage);
+    await sharp(req.files["cloth_image"][0].path).resize(512, 512).toFile(resizedClothImage);
+
+    // Send resized images to ACGPN
     try {
-        await sharp(req.files["user_image"][0].path).resize(512, 512).toFile(resizedUserImage);
-        await sharp(req.files["cloth_image"][0].path).resize(512, 512).toFile(resizedClothImage);
-
-        // Ensure the Ngrok URL is correct (Update it!)
-        const ACGPN_URL = "https://301e-34-60-90-182.ngrok-free.app/tryon"; 
-
-        // Prepare FormData
         const formData = new FormData();
         formData.append("user_image", fs.createReadStream(resizedUserImage));
         formData.append("cloth_image", fs.createReadStream(resizedClothImage));
 
-        const response = await axios.post(ACGPN_URL, formData, {
-            headers: { ...formData.getHeaders() }
-        });
+        const response = await axios.post(
+            "https://301e-34-60-90-182.ngrok-free.app/tryon",
+            formData,
+            { headers: formData.getHeaders() } // ✅ Now this works!
+        );
 
         res.json({ message: "Processing complete!", result: response.data });
     } catch (error) {
