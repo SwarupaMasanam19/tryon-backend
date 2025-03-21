@@ -1,48 +1,77 @@
-const express = require("express");
-const cors = require("cors");
-const multer = require("multer");
-const sharp = require("sharp");
-const axios = require("axios");
-const path = require("path");
-const fs = require("fs");
-const FormData = require("form-data");  // ✅ Use form-data package
+import express from "express";
+import multer from "multer";
+import cors from "cors";
+import path from "path";
+import fs from "fs";
+import fetch from "node-fetch"; 
+
 
 const app = express();
+const PORT = 5000;
+
+// ✅ Use Render URL (Replace with your actual Render backend URL)
+const RENDER_BACKEND_URL = "https://your-render-backend.onrender.com"; 
+
 app.use(cors());
-const upload = multer({ dest: "uploads/" });
 
-app.post("/upload", upload.fields([{ name: "user_image" }, { name: "cloth_image" }]), async (req, res) => {
-    if (!req.files || !req.files["user_image"] || !req.files["cloth_image"]) {
-        return res.status(400).json({ error: "Missing files!" });
-    }
+import { fileURLToPath } from "url";
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const uploadDir = path.join(__dirname, "uploads");
 
-    // Resize images
-    const resizedUserImage = path.join(__dirname, "uploads", "resized_user.jpg");
-    const resizedClothImage = path.join(__dirname, "uploads", "resized_cloth.jpg");
+if (!fs.existsSync(uploadDir)) {
+  fs.mkdirSync(uploadDir);
+}
 
-    await sharp(req.files["user_image"][0].path).resize(512, 512).toFile(resizedUserImage);
-    await sharp(req.files["cloth_image"][0].path).resize(512, 512).toFile(resizedClothImage);
-
-    // Send resized images to ACGPN
-    try {
-        const formData = new FormData();
-        formData.append("user_image", fs.createReadStream(resizedUserImage));
-        formData.append("cloth_image", fs.createReadStream(resizedClothImage));
-
-        const response = await axios.post(
-            "https://28a6-34-106-73-197.ngrok-free.app/tryon",
-            formData,
-            {
-              headers: formData.getHeaders(), 
-            }
-          );
-          
-
-        res.json({ message: "Processing complete!", result: response.data });
-    } catch (error) {
-        console.error("Error processing images:", error);
-        res.status(500).json({ error: "Error processing images!" });
-    }
+// 📸 Configure Multer for file uploads
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    cb(null, "uploads/");
+  },
+  filename: (req, file, cb) => {
+    cb(null, file.fieldname + "-" + Date.now() + path.extname(file.originalname));
+  },
 });
 
-app.listen(5000, () => console.log("✅ Backend running on port 5000"));
+const upload = multer({ storage });
+
+// 🛠️ API Route to Handle File Uploads
+app.post(
+  "/upload",
+  upload.fields([
+    { name: "user_image", maxCount: 1 },
+    { name: "cloth_image", maxCount: 1 },
+  ]),
+  (req, res) => {
+    if (!req.files || !req.files["user_image"] || !req.files["cloth_image"]) {
+      return res.status(400).json({ error: "Missing files!" });
+    }
+
+    res.json({
+      user_image_path: `${RENDER_BACKEND_URL}/uploads/${req.files["user_image"][0].filename}`,
+      cloth_image_path: `${RENDER_BACKEND_URL}/uploads/${req.files["cloth_image"][0].filename}`,
+    });
+  }
+);
+
+// 🔄 Try-On API (Calls Render Backend)
+app.post("/tryon", async (req, res) => {
+  try {
+    const response = await fetch(`${RENDER_BACKEND_URL}/tryon`, { method: "POST" });
+    const data = await response.json();
+
+    if (data.output_image) {
+      res.json({ output_image: data.output_image });
+    } else {
+      res.status(500).json({ error: "Try-on failed from Render!" });
+    }
+  } catch (error) {
+    console.error("❌ Error calling Render backend:", error);
+    res.status(500).json({ error: "Render API not reachable!" });
+  }
+});
+
+// 🏃 Start the Server
+app.listen(PORT, () => {
+  console.log(`✅ Backend running on port ${PORT}`);
+});
