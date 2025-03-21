@@ -32,7 +32,8 @@ app.post("/upload", upload.fields([{ name: "user_image" }, { name: "cloth_image"
         const response = await axios.post(
             "https://28a6-34-106-73-197.ngrok-free.app/tryon",
             formData,
-            { headers: formData.getHeaders() } // ✅ Now this works!
+            headers: { "Content-Type": "multipart/form-data" }
+!
         );
 
         res.json({ message: "Processing complete!", result: response.data });
