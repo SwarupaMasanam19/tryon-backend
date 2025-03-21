@@ -7,8 +7,16 @@ const fs = require("fs");
 const app = express();
 const PORT = process.env.PORT || 5000;
 
-app.use(cors()); 
-app.use("/uploads", express.static(path.join(__dirname, "uploads"))); // ✅ Correctly serve static files
+// ✅ Enable CORS properly
+const corsOptions = {
+  origin: "*",
+  methods: ["GET", "POST"],
+  allowedHeaders: ["Content-Type"],
+};
+app.use(cors(corsOptions));
+
+// ✅ Correctly serve uploaded files
+app.use("/uploads", express.static(path.resolve(__dirname, "uploads")));
 
 // 📂 Ensure 'uploads' folder exists
 const uploadDir = path.join(__dirname, "uploads");
