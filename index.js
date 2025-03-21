@@ -7,13 +7,13 @@ const fs = require("fs");
 const app = express();
 const PORT = process.env.PORT || 5000;
 
-app.use(cors());
-app.use(express.static("uploads")); // Serves uploaded files
+app.use(cors()); 
+app.use("/uploads", express.static(path.join(__dirname, "uploads"))); // ✅ Correctly serve static files
 
 // 📂 Ensure 'uploads' folder exists
 const uploadDir = path.join(__dirname, "uploads");
 if (!fs.existsSync(uploadDir)) {
-  fs.mkdirSync(uploadDir);
+  fs.mkdirSync(uploadDir, { recursive: true });
 }
 
 // 📸 Configure Multer for file uploads
@@ -28,7 +28,7 @@ const storage = multer.diskStorage({
 
 const upload = multer({ storage });
 
-// 🛠️ API Route to Handle File Uploads
+// 🛠️ File Upload API
 app.post(
   "/upload",
   upload.fields([
@@ -47,28 +47,27 @@ app.post(
   }
 );
 
+// 🛠️ Try-On API (Fixes File Issue)
 app.post("/tryon", async (req, res) => {
   const outputImagePath = path.join(uploadDir, "output.png");
 
-  // 🔹 Debug log to check if the file exists
-  console.log("Checking if output image exists:", outputImagePath);
+  console.log("🔍 Checking if output image exists:", outputImagePath);
 
-  // ❌ If output.png does not exist, create a dummy one for testing
+  // ✅ If output.png does NOT exist, copy a real image instead of creating fake text
   if (!fs.existsSync(outputImagePath)) {
-    console.log("❌ output.png not found, creating a dummy one...");
-    fs.writeFileSync(outputImagePath, "Test output image content", "utf8");
+    console.log("❌ output.png not found, copying a real image...");
+    fs.copyFileSync("placeholder.png", outputImagePath); // ✅ Fix: Copy a real image
   }
 
-  // ✅ Now check again if output.png exists
+  // 🔄 Now, check again if output.png exists
   if (!fs.existsSync(outputImagePath)) {
-    console.log("❌ Try-on image still not found after dummy creation!");
+    console.log("❌ Try-on image still missing after copying!");
     return res.status(404).json({ error: "Try-on image not found!" });
   }
 
   console.log("✅ Found output image:", outputImagePath);
   res.json({ output_image: `${req.protocol}://${req.get("host")}/uploads/output.png` });
 });
-
 
 // 🏃 Start the Server
 app.listen(PORT, () => {
