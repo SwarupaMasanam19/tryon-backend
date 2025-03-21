@@ -30,7 +30,7 @@ app.post("/upload", upload.fields([{ name: "user_image" }, { name: "cloth_image"
         formData.append("cloth_image", fs.createReadStream(resizedClothImage));
 
         const response = await axios.post(
-            "https://301e-34-60-90-182.ngrok-free.app/tryon",
+            "https://28a6-34-106-73-197.ngrok-free.app/tryon",
             formData,
             { headers: formData.getHeaders() } // ✅ Now this works!
         );
