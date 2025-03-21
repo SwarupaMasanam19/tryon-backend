@@ -50,6 +50,9 @@ app.post(
 app.post("/tryon", async (req, res) => {
   const outputImagePath = path.join(uploadDir, "output.png");
 
+  // 🔹 Debug log to check if the file exists
+  console.log("Checking if output image exists:", outputImagePath);
+
   // ❌ If output.png does not exist, create a dummy one for testing
   if (!fs.existsSync(outputImagePath)) {
     console.log("❌ output.png not found, creating a dummy one...");
@@ -58,6 +61,7 @@ app.post("/tryon", async (req, res) => {
 
   // ✅ Now check again if output.png exists
   if (!fs.existsSync(outputImagePath)) {
+    console.log("❌ Try-on image still not found after dummy creation!");
     return res.status(404).json({ error: "Try-on image not found!" });
   }
 
