@@ -1,24 +1,17 @@
-import express from "express";
-import multer from "multer";
-import cors from "cors";
-import path from "path";
-import fs from "fs";
-import fetch from "node-fetch"; 
-
+const express = require("express");
+const multer = require("multer");
+const cors = require("cors");
+const path = require("path");
+const fs = require("fs");
 
 const app = express();
-const PORT = 5000;
-
-// ✅ Use Render URL (Replace with your actual Render backend URL)
-const RENDER_BACKEND_URL = "https://your-render-backend.onrender.com"; 
+const PORT = process.env.PORT || 5000;
 
 app.use(cors());
+app.use(express.static("uploads")); // Serves uploaded files
 
-import { fileURLToPath } from "url";
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+// 📂 Ensure 'uploads' folder exists
 const uploadDir = path.join(__dirname, "uploads");
-
 if (!fs.existsSync(uploadDir)) {
   fs.mkdirSync(uploadDir);
 }
@@ -48,27 +41,31 @@ app.post(
     }
 
     res.json({
-      user_image_path: `${RENDER_BACKEND_URL}/uploads/${req.files["user_image"][0].filename}`,
-      cloth_image_path: `${RENDER_BACKEND_URL}/uploads/${req.files["cloth_image"][0].filename}`,
+      user_image_path: `${req.protocol}://${req.get("host")}/uploads/${req.files["user_image"][0].filename}`,
+      cloth_image_path: `${req.protocol}://${req.get("host")}/uploads/${req.files["cloth_image"][0].filename}`,
     });
   }
 );
 
-// 🔄 Try-On API (Calls Render Backend)
-app.post("/tryon", async (req, res) => {
-  try {
-    const response = await fetch(`${RENDER_BACKEND_URL}/tryon`, { method: "POST" });
-    const data = await response.json();
-
-    if (data.output_image) {
-      res.json({ output_image: data.output_image });
-    } else {
-      res.status(500).json({ error: "Try-on failed from Render!" });
+// 📌 Fix `/tryon` Endpoint (Checks for Output Image)
+app.post("/tryon", (req, res) => {
+  fs.readdir(uploadDir, (err, files) => {
+    if (err) {
+      return res.status(500).json({ error: "Error reading uploads folder" });
     }
-  } catch (error) {
-    console.error("❌ Error calling Render backend:", error);
-    res.status(500).json({ error: "Render API not reachable!" });
-  }
+
+    // ✅ Find the latest try-on output image
+    const tryOnImage = files
+      .filter((file) => file.includes("output") || file.includes("result")) // Adjust based on naming
+      .sort((a, b) => fs.statSync(path.join(uploadDir, b)).mtimeMs - fs.statSync(path.join(uploadDir, a)).mtimeMs)[0];
+
+    if (!tryOnImage) {
+      return res.status(404).json({ error: "Try-on image not found!" });
+    }
+
+    console.log("✅ Found try-on image:", tryOnImage);
+    res.json({ output_image: `${req.protocol}://${req.get("host")}/uploads/${tryOnImage}` });
+  });
 });
 
 // 🏃 Start the Server
