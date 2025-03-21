@@ -5,7 +5,7 @@ const path = require("path");
 const fs = require("fs");
 
 const app = express();
-const PORT = process.env.PORT || 5000;
+const PORT = process.env.PORT || 10000;
 
 // ✅ Enable CORS properly
 const corsOptions = {
@@ -15,14 +15,14 @@ const corsOptions = {
 };
 app.use(cors(corsOptions));
 
-// ✅ Correctly serve uploaded files
-app.use("/uploads", express.static(path.resolve(__dirname, "uploads")));
-
-// 📂 Ensure 'uploads' folder exists
+// ✅ Ensure 'uploads' folder exists
 const uploadDir = path.join(__dirname, "uploads");
 if (!fs.existsSync(uploadDir)) {
   fs.mkdirSync(uploadDir, { recursive: true });
 }
+
+// ✅ Correctly serve uploaded files
+app.use("/uploads", express.static(uploadDir));
 
 // 📸 Configure Multer for file uploads
 const storage = multer.diskStorage({
@@ -33,7 +33,6 @@ const storage = multer.diskStorage({
     cb(null, file.fieldname + "-" + Date.now() + path.extname(file.originalname));
   },
 });
-
 const upload = multer({ storage });
 
 // 🛠️ File Upload API
